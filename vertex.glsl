@@ -8,32 +8,23 @@ uniform mat4 uProjection;
 uniform mat4 uView;
 uniform mat4 uModel;
 uniform vec3 uViewPos;
+uniform vec3 uLightPos;
 
 out vec2 vTexCoord;
 out vec3 vViewDirTangent;
+out vec3 vLightDirTangent;
 
 void main() {
     vTexCoord = aTexCoord;
 
-    // 1. Ruotiamo Tangente e Normale nello spazio del mondo (World Space)
-    // Moltiplichiamo per uModel. Usiamo 0.0 perché sono direzioni, non punti spaziali.
     vec3 T = normalize(vec3(uModel * vec4(aTangent, 0.0)));
-    vec3 N = normalize(vec3(uModel * vec4(aNormal, 0.0)));
-
-    // 2. Calcoliamo la Bitangente con i vettori ruotati
+    vec3 N = normalize(vec3(uModel * vec4(aNormal,  0.0)));
     vec3 B = cross(N, T);
+    mat3 TBN = transpose(mat3(T, B, N));
 
-    // 3. Ora la matrice TBN girerà perfettamente insieme al tuo cubo!
-    mat3 tbn = transpose(mat3(T, B, N));
-
-    // Posizione del vertice nel mondo
     vec3 worldPos = vec3(uModel * vec4(aPos, 1.0));
-
-    // Vettore dalla telecamera al vertice
-    vec3 viewDirWorld = normalize(uViewPos - worldPos);
-
-    // Trasformazione finale nello Spazio Tangente
-    vViewDirTangent = tbn * viewDirWorld;
+    vViewDirTangent  = TBN * normalize(uViewPos  - worldPos);
+    vLightDirTangent = TBN * normalize(uLightPos - worldPos);
 
     gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
 }

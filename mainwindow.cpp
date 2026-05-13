@@ -17,6 +17,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->depthSlider, &QSlider::valueChanged,
             ui->openGLWidget, &MyGLWidget::setDepthScale);
+    connect(ui->sizeSlider, &QSlider::valueChanged,
+            ui->openGLWidget, &MyGLWidget::setMeshScale);
 
     // (Opzionale) Se vuoi che la finestra parta di una certa dimensione:
     // resize(800, 600);
