@@ -15,10 +15,8 @@ uniform sampler2D uDiffuseMap;
 //  La heightmap del canyon ha valori ~[0.40, 0.65] invece di [0,1]
 //  Stretchiamo per usare tutto il range disponibile.
 // ============================================================
-// 1. NUOVA GETHEIGHT (Matematica Pura)
+
 float getHeight(vec2 uv) {
-    // Il raymarcher parte da 0.0 (superficie) e va in profondità.
-    // La texture di Blender va da 1.0 (Vicino) a 0.0 (Sfondo).
     return 1.0 - texture(uHeightMap, uv).r;
 }
 
@@ -117,21 +115,31 @@ void main() {
 
     // 2. Paracadute per i bordi (il discard interviene solo se sforiamo la maschera edge)
     if (dispUV.x < 0.0 || dispUV.x > 1.0 || dispUV.y < 0.0 || dispUV.y > 1.0) {
-        discard;
-    }
+            discard;
+        }
 
-    // 3. Estrazione dati dal punto trovato
-    vec3 N = getNormal(dispUV);
-    vec3 baseColor = texture(uDiffuseMap, dispUV).rgb;
+        float h = getHeight(dispUV);
 
-    // 4. Illuminazione Lambert (Ideale per la roccia opaca del canyon)
-    float ambient = 0.15; // Leggermente alzato per compensare l'assenza di self-shadowing
-    float diffuse = max(dot(N, L), 0.0);
+        // 2. LA MAGIA IBO: Scarta lo sfondo nero di Blender!
+        // Se l'altezza è quasi 1.0, significa che il raggio ha colpito lo sfondo vuoto.
+        if (h > 0.85) {
+            discard;
+        }
 
-    vec3 finalColor = baseColor * (ambient + diffuse);
+        // 3. Usa la Normal Map reale! (che nel C++ abbiamo legato a uDiffuseMap)
+        vec3 rawNormal = texture(uDiffuseMap, dispUV).rgb;
+        // Decodifica da [0, 1] a [-1, 1]
+        vec3 N = normalize(rawNormal * 2.0 - 1.0);
 
-    // 5. Correzione Gamma (Manteniamo questa riga perché denota grande competenza tecnica)
-    finalColor = pow(clamp(finalColor, 0.0, 1.0), vec3(1.0 / 2.2));
+        // 4. Colore base (Diamo a Suzanne un colore solido stile "gesso")
+        vec3 baseColor = vec3(0.8, 0.8, 0.8);
 
-    FragColor = vec4(finalColor, 1.0);
+        // 5. Illuminazione Lambert standard
+        float ambient = 0.15;
+        float diffuse = max(dot(N, L), 0.0);
+
+        vec3 finalColor = baseColor * (ambient + diffuse);
+        finalColor = pow(clamp(finalColor, 0.0, 1.0), vec3(1.0 / 2.2));
+
+        FragColor = vec4(finalColor, 1.0);
 }

@@ -191,8 +191,8 @@ void MyGLWidget::paintGL()
 
 void MyGLWidget::setDepthScale(int value)
 {
-    // 0-100 → 0.0 - 0.40
-    m_depthScale = value / 250.0f;
+    // Il 100% dello slider ora corrisponde alla sincronizzazione perfetta di 0.625
+    m_depthScale = (value / 100.0f) * 0.625f;
     update();
 }
 
