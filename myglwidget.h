@@ -62,7 +62,8 @@ private:
     QMatrix4x4 m_model;
 
     // OpenGL objects
-    QOpenGLTexture          *m_heightMap = nullptr;
+    QOpenGLTexture *m_depthMaps[6] = {nullptr};
+    QOpenGLTexture *m_normalMaps[6] = {nullptr};
     QOpenGLShaderProgram    *m_program   = nullptr;
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer            m_vbo;

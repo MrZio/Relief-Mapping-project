@@ -2,5 +2,21 @@
     <qresource prefix="/">
         <file>vertex.glsl</file>
         <file>fragment.glsl</file>
+        <file>heighmapKrita.png</file>
+        <file>diffuseKrita.png</file>
+        <file>diffuseCanyon.png</file>
+        <file>heightCanyon.png</file>
+        <file>depth_Back.png</file>
+        <file>depth_Bottom.png</file>
+        <file>depth_Front.png</file>
+        <file>depth_Left.png</file>
+        <file>depth_Right.png</file>
+        <file>depth_Top.png</file>
+        <file>normal_Back.png</file>
+        <file>normal_Bottom.png</file>
+        <file>normal_Front.png</file>
+        <file>normal_Left.png</file>
+        <file>normal_Right.png</file>
+        <file>normal_Top.png</file>
     </qresource>
 </RCC>
