@@ -1,0 +1,5 @@
+# Esclude la cartella di build e tutti i suoi contenuti
+build/
+*.exe
+*.obj
+*.o
