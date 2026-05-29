@@ -169,6 +169,7 @@ void MyGLWidget::paintGL()
     // 4. --- UNIFORMS RELIEF MAPPING ---
     m_program->setUniformValue("uDepthScale", m_depthScale);
     m_program->setUniformValue("uSearchMode", m_searchMode);
+    m_program->setUniformValue("uLinearSteps", m_linearSteps);
 
     m_vao.bind();
 
@@ -241,5 +242,11 @@ void MyGLWidget::wheelEvent(QWheelEvent *event)
     float delta = event->angleDelta().y() / 120.0f;
     m_zoom -= delta * 0.4f;
     m_zoom  = qBound(1.5f, m_zoom, 30.0f);
+    update();
+}
+
+void MyGLWidget::setLinearSteps(int value)
+{
+    m_linearSteps = 4 + int(value / 100.0f * 60.0f);  // 0-100 → 4-64 passi
     update();
 }

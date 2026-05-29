@@ -8,40 +8,55 @@ in vec3 vNormalWorld;
 in vec3 vTangentWorld;
 
 uniform float uDepthScale;
-uniform int   uSearchMode;
+uniform int   uSearchMode;    // 0 = linear only, 1 = linear + binary
+uniform int   uLinearSteps;   // numero di passi lineari (slider, default 16)
 uniform sampler2D uHeightMap;
 uniform sampler2D uDiffuseMap;
 
-// ============================================================
-//  DEPTH MAP
-//  Blender: bianco=vicino, nero=lontano, sfondo=grigio ~0.53
-//  Dopo inversione: sfondo → ~0.47, oggetto → [0, ~0.44]
-// ============================================================
-const float BG_THRESHOLD = 0.44;   // leggermente abbassato per sicurezza
+const float BG_THRESHOLD = 0.44;
 
 float getHeight(vec2 uv) {
     float raw = texture(uHeightMap, uv).r;
     float h   = 1.0 - raw;
-
-    // Vignette ai bordi del quad
-    float ex = smoothstep(0.0, 0.04, uv.x) * (1.0 - smoothstep(0.96, 1.0, uv.x));
-    float ey = smoothstep(0.0, 0.04, uv.y) * (1.0 - smoothstep(0.96, 1.0, uv.y));
+    float ex  = smoothstep(0.0, 0.04, uv.x) * (1.0 - smoothstep(0.96, 1.0, uv.x));
+    float ey  = smoothstep(0.0, 0.04, uv.y) * (1.0 - smoothstep(0.96, 1.0, uv.y));
     return h * ex * ey;
 }
 
 // ============================================================
 //  RELIEF TRACE
+//
+//  Modalità 0 — LINEAR ONLY
+//    Il raggio avanza a passi uniformi lungo viewDir.
+//    Si ferma al primo passo che supera la superficie.
+//    Risultato: il punto di intersezione è quello grezzo dell'ultimo
+//    passo → con pochi passi si vedono chiaramente le "scalinature"
+//    (banding) ai bordi e nelle zone ad alto contrasto del rilievo.
+//    Questo è l'artefatto classico della sola ricerca lineare.
+//
+//  Modalità 1 — LINEAR + BINARY SEARCH
+//    Dopo la fase lineare (stessi passi), si eseguono 6 iterazioni
+//    di binary search nell'intervallo [prevUV, curUV], dimezzando
+//    ogni volta l'intervallo di incertezza.
+//    6 iterazioni → precisione equivalente a 2^6 = 64 volte più fine
+//    del passo lineare, senza campionare 64 volte in più.
+//    Risultato: bordi precisi, nessun banding visibile.
 // ============================================================
 vec2 reliefTrace(vec2 uv, vec3 viewDir) {
     float vz = max(abs(viewDir.z), 0.04);
-    float numSteps   = mix(96.0, 16.0, vz * vz);
+
+    // Usiamo uLinearSteps (controllato da slider) invece di un valore fisso.
+    // Con 16 passi le scalinature della modalità 0 sono chiaramente visibili.
+    // Con 64+ passi la differenza è quasi impercettibile a occhio nudo.
+    float numSteps   = float(max(uLinearSteps, 4));
     float deltaDepth = 1.0 / numSteps;
     vec2  deltaUV    = (viewDir.xy * uDepthScale) / (vz * numSteps);
 
     vec2  curUV  = uv,  prevUV = uv;
     float curD   = 0.0, prevD  = 0.0;
 
-    for (int i = 0; i < 96; i++) {
+    // --- FASE LINEARE (comune a entrambe le modalità) ---
+    for (int i = 0; i < 128; i++) {
         if (float(i) >= numSteps) break;
         prevUV = curUV;  prevD = curD;
         curUV -= deltaUV;
@@ -50,13 +65,16 @@ vec2 reliefTrace(vec2 uv, vec3 viewDir) {
         if (curD >= h && h < BG_THRESHOLD) break;
     }
 
+    // --- MODALITÀ 0: linear only ---
+    // Ritorna il punto grezzo — nessun raffinamento.
+    // Con uLinearSteps basso (es. 16) vedrai banding evidente.
     if (uSearchMode == 0) {
-        float after  = getHeight(curUV)  - curD;
-        float before = getHeight(prevUV) - prevD;
-        float t = after / (after - before + 0.0001);
-        return mix(curUV, prevUV, t);
+        return curUV;
     }
 
+    // --- MODALITÀ 1: binary search refinement ---
+    // Dimezza 6 volte l'intervallo tra l'ultimo passo valido (prevUV)
+    // e il primo passo invalido (curUV). Precisione: 1/numSteps / 2^6.
     vec2  lo = prevUV; float loD = prevD;
     vec2  hi = curUV;  float hiD = curD;
     for (int j = 0; j < 6; j++) {
@@ -68,56 +86,42 @@ vec2 reliefTrace(vec2 uv, vec3 viewDir) {
     return (lo + hi) * 0.5;
 }
 
-// ===========================
+// ============================================================
 //  MAIN
-// ===========================
+// ============================================================
 void main() {
     vec3 V = normalize(vViewDirTangent);
     vec3 L = normalize(vLightDirTangent);
 
     vec2 dispUV = reliefTrace(vTexCoord, V);
 
-    // Bordi quad
     if (dispUV.x < 0.0 || dispUV.x > 1.0 ||
         dispUV.y < 0.0 || dispUV.y > 1.0) discard;
 
     float h = getHeight(dispUV);
 
-    // --- FIX  for SPECKLING ---
-    // 1. Leggiamo l'altezza anche in un intorno 2x2 vicino al pixel
-    //    Se tutti i vicini sono sfondo, scartiamo anche noi
+    // Anti-speckling: neighbourhood check
     float eps = 0.004;
-    float hN  = getHeight(dispUV + vec2( 0.0,  eps));
-    float hS  = getHeight(dispUV + vec2( 0.0, -eps));
-    float hE  = getHeight(dispUV + vec2( eps,  0.0));
-    float hW  = getHeight(dispUV + vec2(-eps,  0.0));
+    float avgH = (getHeight(dispUV + vec2( 0.0,  eps)) +
+                  getHeight(dispUV + vec2( 0.0, -eps)) +
+                  getHeight(dispUV + vec2( eps,  0.0)) +
+                  getHeight(dispUV + vec2(-eps,  0.0))) * 0.25;
 
-    // Se questo pixel è "oggetto" ma tutti i vicini sono sfondo → puntino isolato
-    // oppure se l'altezza media dei vicini è sfondo → scarta
-    float avgH = (hN + hS + hE + hW) * 0.25;
-
-    // 2. Scarta: (a) sfondo diretto, (b) puntini isolati (pixel oggetto circondato da sfondo)
-    if (h >= BG_THRESHOLD) discard;
+    if (h   >= BG_THRESHOLD) discard;
     if (avgH >= BG_THRESHOLD && h > BG_THRESHOLD * 0.85) discard;
 
-    // 3. Smooth alpha ai bordi dell'oggetto: invece di un discard netto,
-    //    usiamo una zona di transizione soft basata su quanto siamo vicini alla soglia
     float edgeFade = 1.0 - smoothstep(BG_THRESHOLD * 0.80, BG_THRESHOLD * 0.98, h);
 
     // Normal map
-    vec3 rawN = texture(uDiffuseMap, dispUV).rgb;
-    vec3 N    = normalize(rawN * 2.0 - 1.0);
+    vec3 N = normalize(texture(uDiffuseMap, dispUV).rgb * 2.0 - 1.0);
 
-    // Illuminazione
+    // Phong
     float ambient = 0.18;
     float diffuse = max(dot(N, L), 0.0);
-    vec3  R       = reflect(-L, N);
-    float spec    = pow(max(dot(R, V), 0.0), 32.0) * 0.3;
+    float spec    = pow(max(dot(reflect(-L, N), V), 0.0), 32.0) * 0.3;
 
-    vec3 baseColor = vec3(0.85, 0.83, 0.80);
-    vec3 color     = baseColor * (ambient + diffuse) + vec3(1.0) * spec;
+    vec3 color = vec3(0.85, 0.83, 0.80) * (ambient + diffuse) + vec3(spec);
     color = pow(clamp(color, 0.0, 1.0), vec3(1.0 / 2.2));
 
-    // Applica il fade ai bordi (alpha morbido invece di discard secco)
     FragColor = vec4(color, edgeFade);
 }

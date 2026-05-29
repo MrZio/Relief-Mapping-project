@@ -24,7 +24,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QSlider" name="sizeSlider">
+   <widget class="QSlider" name="stepsSlider">
     <property name="geometry">
      <rect>
       <x>40</x>
@@ -48,6 +48,19 @@
     </property>
     <property name="orientation">
      <enum>Qt::Orientation::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="searchModeCheck">
+    <property name="geometry">
+     <rect>
+      <x>40</x>
+      <y>330</y>
+      <width>231</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Linear + Binary Search</string>
     </property>
    </widget>
   </widget>

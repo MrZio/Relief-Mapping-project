@@ -23,16 +23,15 @@ protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
-
-    // Mouse: rotazione (left) + traslazione (right) + zoom (wheel)
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 
 public slots:
-    void setDepthScale(int value);      // slider depth (0-100 → 0.0-0.3)
-    void setMeshScale(int value);       // slider scala mesh (0-100 → 0.5-2.0)
-    void setSearchMode(int mode);       // 0=linear, 1=linear+binary
+    void setDepthScale(int value);
+    void setMeshScale(int value);
+    void setSearchMode(int mode);
+    void setLinearSteps(int value);   // <-- NUOVO: slider passi lineari
 
 private:
     struct VertexData {
@@ -44,35 +43,31 @@ private:
 
     void buildCube();
 
-    // Parametri di rendering
     float m_depthScale  = 0.10f;
     float m_meshScale   = 1.0f;
-    int   m_searchMode  = 1;        // default: linear + binary
+    int   m_searchMode  = 1;
+    int   m_linearSteps = 16;     // <-- default: 16 passi, differenza ben visibile
     float m_lightAngle  = 0.0f;
 
-    // Camera
-    float m_pitch = 0.0f;
-    float m_yaw   = 0.0f;
-    float m_zoom  = 7.0f;           // distanza camera dal centro
-    QVector3D m_panOffset;          // traslazione XY
+    float     m_pitch = 0.0f;
+    float     m_yaw   = 0.0f;
+    float     m_zoom  = 7.0f;
+    QVector3D m_panOffset;
 
-    // Matrici
     QMatrix4x4 m_projection;
     QMatrix4x4 m_view;
     QMatrix4x4 m_model;
 
-    // OpenGL objects
-    QOpenGLTexture *m_depthMaps[6] = {nullptr};
-    QOpenGLTexture *m_normalMaps[6] = {nullptr};
-    QOpenGLShaderProgram    *m_program   = nullptr;
+    // 6 depth maps + 6 normal maps per l'IBO
+    QOpenGLTexture          *m_depthMaps[6]  = {};
+    QOpenGLTexture          *m_normalMaps[6] = {};
+    QOpenGLShaderProgram    *m_program       = nullptr;
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer            m_vbo;
 
-    // Input
-    QPoint m_lastPos;
-    Qt::MouseButton m_dragButton = Qt::NoButton;
+    QPoint           m_lastPos;
+    Qt::MouseButton  m_dragButton = Qt::NoButton;
 
-    // Timers
     QTimer        *m_animTimer = nullptr;
     QElapsedTimer  m_fpsTimer;
     int            m_frameCount = 0;
