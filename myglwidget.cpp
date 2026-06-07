@@ -77,12 +77,11 @@ void MyGLWidget::initializeGL()
 
     // ---------------------------------------------------------
     // CARICAMENTO IBO (Image-Based Object a 6 facce)
-    // L'ordine DEVE riflettere quello di buildCube(): Front, Back, Right, Left, Top, Bottom
     // ---------------------------------------------------------
     QString faceNames[6] = {"Front", "Back", "Right", "Left", "Top", "Bottom"};
 
     for (int i = 0; i < 6; i++) {
-        // Carica la mappa di profondità (Z-Buffer)
+        // 1. Carica la mappa di profondità FRONTALE (Z-Buffer)
         QString depthPath = QString(":/depth_%1.png").arg(faceNames[i]);
         QImage dImg(depthPath);
         if (dImg.isNull()) qWarning() << "Errore: Impossibile caricare" << depthPath;
@@ -90,10 +89,10 @@ void MyGLWidget::initializeGL()
         m_depthMaps[i] = new QOpenGLTexture(dImg.flipped(Qt::Vertical));
         m_depthMaps[i]->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
         m_depthMaps[i]->setMagnificationFilter(QOpenGLTexture::Linear);
-        m_depthMaps[i]->setWrapMode(QOpenGLTexture::ClampToEdge); // FONDAMENTALE per sigillare i bordi
+        m_depthMaps[i]->setWrapMode(QOpenGLTexture::ClampToEdge);
         m_depthMaps[i]->generateMipMaps();
 
-        // Carica la mappa delle normali (Geometry)
+        // 2. Carica la mappa delle normali (Geometry)
         QString normalPath = QString(":/normal_%1.png").arg(faceNames[i]);
         QImage nImg(normalPath);
         if (nImg.isNull()) qWarning() << "Errore: Impossibile caricare" << normalPath;
@@ -103,6 +102,17 @@ void MyGLWidget::initializeGL()
         m_normalMaps[i]->setMagnificationFilter(QOpenGLTexture::Linear);
         m_normalMaps[i]->setWrapMode(QOpenGLTexture::ClampToEdge);
         m_normalMaps[i]->generateMipMaps();
+
+        // 3. NUOVO: Carica la mappa di profondità POSTERIORE (Dual-Depth)
+        QString depthBackPath = QString(":/back_depth_%1.png").arg(faceNames[i]);
+        QImage bImg(depthBackPath);
+        if (bImg.isNull()) qWarning() << "Errore: Impossibile caricare" << depthBackPath;
+
+        m_depthBackMaps[i] = new QOpenGLTexture(bImg.flipped(Qt::Vertical));
+        m_depthBackMaps[i]->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+        m_depthBackMaps[i]->setMagnificationFilter(QOpenGLTexture::Linear);
+        m_depthBackMaps[i]->setWrapMode(QOpenGLTexture::ClampToEdge);
+        m_depthBackMaps[i]->generateMipMaps();
     }
 
     m_vao.create();
@@ -154,6 +164,7 @@ void MyGLWidget::paintGL()
     m_program->setUniformValue("uProjection", m_projection);
     m_program->setUniformValue("uView",       m_view);
 
+
     // 2. --- LUCE ---
     float rad = qDegreesToRadians(m_lightAngle);
     QVector3D lightPos(6.0f * qCos(rad), 5.0f, 6.0f * qSin(rad));
@@ -170,20 +181,29 @@ void MyGLWidget::paintGL()
     m_program->setUniformValue("uDepthScale", m_depthScale);
     m_program->setUniformValue("uSearchMode", m_searchMode);
     m_program->setUniformValue("uLinearSteps", m_linearSteps);
+    m_program->setUniformValue("uUseDualDepth", m_useDualDepth);
+
 
     m_vao.bind();
 
     // 5. --- RENDERING FRAZIONATO DELL'IBO ---
     for (int i = 0; i < 6; i++) {
-        // Controllo di sicurezza per evitare crash se la texture non è caricata
-        if(m_depthMaps[i] && m_normalMaps[i]) {
+        // Aggiunto m_depthBackMaps[i] al controllo di sicurezza
+        if(m_depthMaps[i] && m_normalMaps[i] && m_depthBackMaps[i]) {
+
+            // 1. Mappa Frontale
             m_depthMaps[i]->bind(0);
             m_program->setUniformValue("uHeightMap", 0);
 
+            // 2. Normal Map
             m_normalMaps[i]->bind(1);
             m_program->setUniformValue("uDiffuseMap", 1);
 
-            // Disegna 6 vertici partendo dall'offset (i * 6)
+            // 3. LA NOSTRA MAPPA POSTERIORE! (Unità 2)
+            m_depthBackMaps[i]->bind(2);
+            m_program->setUniformValue("uDepthBackMap", 2);
+
+            // Disegna
             glDrawArrays(GL_TRIANGLES, i * 6, 6);
         }
     }
@@ -194,8 +214,8 @@ void MyGLWidget::paintGL()
 
 void MyGLWidget::setDepthScale(int value)
 {
-    // Il 100% dello slider ora corrisponde alla sincronizzazione perfetta di 0.625
-    m_depthScale = (value / 100.0f) * 0.625f;
+    // Max 0.35 invece di 0.625: oltre, le facce dell'IBO si sovrappongono
+    m_depthScale = (value / 100.0f) * 0.35f;
     update();
 }
 
@@ -248,5 +268,10 @@ void MyGLWidget::wheelEvent(QWheelEvent *event)
 void MyGLWidget::setLinearSteps(int value)
 {
     m_linearSteps = 4 + int(value / 100.0f * 60.0f);  // 0-100 → 4-64 passi
+    update();
+}
+void MyGLWidget::setDualDepth(int mode)
+{
+    m_useDualDepth = mode;
     update();
 }

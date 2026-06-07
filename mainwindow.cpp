@@ -22,6 +22,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->stepsSlider, &QSlider::valueChanged,
             ui->openGLWidget, &MyGLWidget::setLinearSteps);
 
+    ui->dualDepthCheck->setChecked(true);
+    connect(ui->dualDepthCheck, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                ui->openGLWidget->setDualDepth(checked ? 1 : 0);
+            });
+
     // Checkbox: toggle Linear only / Linear + Binary
     ui->searchModeCheck->setChecked(true);
     connect(ui->searchModeCheck, &QCheckBox::toggled,

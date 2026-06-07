@@ -31,7 +31,9 @@ public slots:
     void setDepthScale(int value);
     void setMeshScale(int value);
     void setSearchMode(int mode);
-    void setLinearSteps(int value);   // <-- NUOVO: slider passi lineari
+    void setLinearSteps(int value);
+    void setDualDepth(int mode);
+
 
 private:
     struct VertexData {
@@ -46,8 +48,9 @@ private:
     float m_depthScale  = 0.10f;
     float m_meshScale   = 1.0f;
     int   m_searchMode  = 1;
-    int   m_linearSteps = 16;     // <-- default: 16 passi, differenza ben visibile
+    int   m_linearSteps = 16;
     float m_lightAngle  = 0.0f;
+    int m_useDualDepth = 1;   // 0 = single, 1 = dual depth
 
     float     m_pitch = 0.0f;
     float     m_yaw   = 0.0f;
@@ -59,8 +62,9 @@ private:
     QMatrix4x4 m_model;
 
     // 6 depth maps + 6 normal maps per l'IBO
-    QOpenGLTexture          *m_depthMaps[6]  = {};
-    QOpenGLTexture          *m_normalMaps[6] = {};
+    QOpenGLTexture   *m_depthBackMaps[6];
+    QOpenGLTexture   *m_depthMaps[6]  = {};
+    QOpenGLTexture   *m_normalMaps[6] = {};
     QOpenGLShaderProgram    *m_program       = nullptr;
     QOpenGLVertexArrayObject m_vao;
     QOpenGLBuffer            m_vbo;

@@ -18,5 +18,11 @@
         <file>normal_Left.png</file>
         <file>normal_Right.png</file>
         <file>normal_Top.png</file>
+        <file>back_depth_Back.png</file>
+        <file>back_depth_Bottom.png</file>
+        <file>back_depth_Front.png</file>
+        <file>back_depth_Left.png</file>
+        <file>back_depth_Right.png</file>
+        <file>back_depth_Top.png</file>
     </qresource>
 </RCC>
